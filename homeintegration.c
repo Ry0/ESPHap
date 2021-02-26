@@ -128,7 +128,7 @@ homekit_server_config_t config = {
 };
 */
 
-#define MAX_HAP_SERVICES 7
+#define MAX_HAP_SERVICES 10
 #define MAX_HAP_ACCESSORIES 7
 homekit_accessory_t *hap_accessories[MAX_HAP_ACCESSORIES + 1] = { 0 };
 homekit_service_t* hap_services[MAX_HAP_SERVICES + 1] = { 0 };
