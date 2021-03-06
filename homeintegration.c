@@ -33,7 +33,7 @@
 #include "storage.h"
 #include "storage_ex.h"
 
-#define MAX_SERVICES 20
+//#define MAX_SERVICES 20
 
 
 static callback_storagechanged callbackstorage_integration=NULL;
@@ -313,6 +313,20 @@ homekit_service_t* hap_new_homekit_accessory_service(const char *szname,const ch
 		        NULL
 		    });
 }
+
+
+bool hap_set_charachteristic_validrange(homekit_characteristic_t * ch, float min, float max) {
+	if (ch && ch->min_value && ch->max_value) {
+		*(ch->min_value) = min;
+		*(ch->max_value) = max;
+		return 1;
+	}
+	return 0;
+}
+bool hap_set_charachteristic_validrange_by_type(homekit_service_t *service,const char *type, float min, float max) {
+	return hap_set_charachteristic_validrange(homekit_service_characteristic_by_type(service, type),min, max);
+}
+
 homekit_service_t* hap_new_lightbulb_service(const char* szname,hap_callback cb,void* context){
 
 	return NEW_HOMEKIT_SERVICE(LIGHTBULB, .primary = true,.characteristics=(homekit_characteristic_t*[]) {
@@ -460,20 +474,18 @@ homekit_service_t* hap_new_rgbstrip_service_ex(const char* szname, hap_callback 
 	INFO("hap_new_rgbstrip_service_ex" );
 	return NEW_HOMEKIT_SERVICE(TELEVISION, .primary = true, .characteristics = (homekit_characteristic_t*[]) {
 		NEW_HOMEKIT_CHARACTERISTIC(NAME, szname),
+		NEW_HOMEKIT_CHARACTERISTIC(
+				ACTIVE_IDENTIFIER, 0,
+				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
+					cb, .context = context
+				)
+			),
 			NEW_HOMEKIT_CHARACTERISTIC(
 				ACTIVE, true,
 				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
 					cb, .context = context
 				)
 			),
-
-			NEW_HOMEKIT_CHARACTERISTIC(
-				ACTIVE_IDENTIFIER, 0,
-				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
-					cb, .context = context
-				)
-			),
-
 			NEW_HOMEKIT_CHARACTERISTIC(
 				CONFIGURED_NAME, szname,
 				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
@@ -604,6 +616,56 @@ homekit_service_t* hap_new_thermostat_service(const char* szname, hap_callback c
 	});
 
 }
+//heater cooler
+homekit_service_t* hap_add_heater_service(const char* szname, hap_callback cb, void* context) {
+
+	homekit_service_t*service = hap_new_heater_service(szname, cb, context);
+
+	return hap_add_service(service);
+}
+homekit_service_t* hap_add_heater_service_as_accessory(int acctype, const char* szname, hap_callback cb, void* context) //hap_add_htermostat_service_as_accessory
+{
+	homekit_service_t* baseservice = hap_new_homekit_accessory_service(szname, "0");
+	homekit_service_t* heatercoolerservice = hap_new_heater_service(szname, cb, context);
+	homekit_service_t* svc[3];
+	svc[0] = baseservice;
+	svc[1] = heatercoolerservice;
+	svc[2] = NULL;
+	hap_accessories[hap_mainaccesories_current] = NEW_HOMEKIT_ACCESSORY(
+		.category = (homekit_accessory_category_t)acctype,
+		.services = svc
+	);
+
+	hap_mainaccesories_current++;
+	hap_accessories[hap_mainaccesories_current] = NULL;
+	//return thermoservice;
+	return heatercoolerservice;
+}
+homekit_service_t* hap_new_heater_service(const char* szname, hap_callback cb, void* context) {
+	return NEW_HOMEKIT_SERVICE(HEATER_COOLER, .characteristics = (homekit_characteristic_t*[]) {
+		NEW_HOMEKIT_CHARACTERISTIC(
+			ACTIVE, true,
+			.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
+				cb, .context = context
+			)
+		),
+		NEW_HOMEKIT_CHARACTERISTIC(CURRENT_TEMPERATURE, 0),
+		NEW_HOMEKIT_CHARACTERISTIC(CURRENT_HEATER_COOLER_STATE, 0),
+		NEW_HOMEKIT_CHARACTERISTIC(TARGET_HEATER_COOLER_STATE, 0,
+				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
+					cb, .context = context
+				),
+			.valid_values = { .count = 2, .values = (uint8_t[]) { 0, 1 } }
+		),
+	    NEW_HOMEKIT_CHARACTERISTIC(HEATING_THRESHOLD_TEMPERATURE, 16.0,
+				.callback = HOMEKIT_CHARACTERISTIC_CALLBACK(
+					cb, .context = context
+				)),
+			NULL
+	});
+
+}
+
 homekit_service_t* hap_add_humidity_service(const char* szname){
 
 	homekit_service_t*service=NEW_HOMEKIT_SERVICE(HUMIDITY_SENSOR, .characteristics=(homekit_characteristic_t*[]) {
@@ -805,6 +867,39 @@ homekit_service_t* hap_new_fan_service(const char* szname, hap_callback cb, void
 				)),
 			NULL
 	});
+}
+
+/**
+ * Add a custom accessory, customising the services for it.
+ * Example usage:
+ * <code>
+ *      String name = "My Accessory";
+ *      homekit_service_t *services[4];
+ *      services[0] = hap_new_homekit_accessory_service(name.c_str(), "0");
+ *      services[1] = hap_new_motion_service(name.c_str(), hapCallback, nullptr);
+ *      services[2] = hap_new_battery_service(name.c_str(), hapCallback, nullptr);
+ *      services[3] = NULL;
+ *      hap_add_accessory(homekit_accessory_category_security_system,
+ *                        services);
+ * </code>
+ * @param acctype Something from homekit_accessory_category_t
+ * @param services An array of homekit_service_t, with the last element as NULL
+ * @return
+ */
+homekit_accessory_t *hap_add_accessory(
+        int acctype, homekit_service_t *services[]) {
+
+    INFO("hap_add_accessory");
+    homekit_accessory_t *acc = NEW_HOMEKIT_ACCESSORY(
+            .category = (homekit_accessory_category_t)acctype,
+            .services = services
+    );
+    hap_accessories[hap_mainaccesories_current] = acc;
+
+    hap_mainaccesories_current++;
+    hap_accessories[hap_mainaccesories_current] = NULL;
+
+    return acc;
 }
 
 homekit_service_t* hap_add_fan_service(const char* szname, hap_callback cb, void* context) {
