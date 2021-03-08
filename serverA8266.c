@@ -23,7 +23,7 @@
 #include <sys/errno.h>
 
 #include "http_parser.h"
-#include "cJSON.h"
+#include "esphap_cJSON.h"
 #include <wolfssl/wolfcrypt/hash.h>
 #include <wolfssl/wolfcrypt/coding.h>
 
@@ -2391,7 +2391,7 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
     DEBUG_HEAP();
 
     char *data1 = strndup((char *)data, size);
-    cJSON *json = cJSON_Parse(data1);
+    cJSON *json = esphap_cJSON_Parse(data1);
     free(data1);
 
     if (!json)
@@ -2401,25 +2401,25 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
         return;
     }
 
-    cJSON *characteristics = cJSON_GetObjectItem(json, "characteristics");
+    cJSON *characteristics = esphap_cJSON_GetObjectItem(json, "characteristics");
     if (!characteristics)
     {
         CLIENT_ERROR(context, "Failed to parse request: no \"characteristics\" field");
-        cJSON_Delete(json);
+        esphap_cJSON_Delete(json);
         send_json_error_response(context, 400, HAPStatus_InvalidValue);
         return;
     }
     if (characteristics->type != cJSON_Array)
     {
         CLIENT_ERROR(context, "Failed to parse request: \"characteristics\" field is not an list");
-        cJSON_Delete(json);
+        esphap_cJSON_Delete(json);
         send_json_error_response(context, 400, HAPStatus_InvalidValue);
         return;
     }
 
     HAPStatus process_characteristics_update(const cJSON *j_ch)
     {
-        cJSON *j_aid = cJSON_GetObjectItem(j_ch, "aid");
+        cJSON *j_aid = esphap_cJSON_GetObjectItem(j_ch, "aid");
         if (!j_aid)
         {
             CLIENT_ERROR(context, "Failed to process request: no \"aid\" field");
@@ -2431,7 +2431,7 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
             return HAPStatus_NoResource;
         }
 
-        cJSON *j_iid = cJSON_GetObjectItem(j_ch, "iid");
+        cJSON *j_iid = esphap_cJSON_GetObjectItem(j_ch, "iid");
         if (!j_iid)
         {
             CLIENT_ERROR(context, "Failed to process request: no \"iid\" field");
@@ -2456,7 +2456,7 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
             return HAPStatus_NoResource;
         }
 
-        cJSON *j_value = cJSON_GetObjectItem(j_ch, "value");
+        cJSON *j_value = esphap_cJSON_GetObjectItem(j_ch, "value");
         if (j_value)
         {
             homekit_value_t h_value = HOMEKIT_NULL();
@@ -2762,7 +2762,7 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
             }
         }
 
-        cJSON *j_events = cJSON_GetObjectItem(j_ch, "ev");
+        cJSON *j_events = esphap_cJSON_GetObjectItem(j_ch, "ev");
         if (j_events)
         {
             if (!(ch->permissions && homekit_permissions_notify))
@@ -2793,13 +2793,13 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
         return HAPStatus_Success;
     }
 
-    HAPStatus *statuses = malloc(sizeof(HAPStatus) * cJSON_GetArraySize(characteristics));
+    HAPStatus *statuses = malloc(sizeof(HAPStatus) * esphap_cJSON_GetArraySize(characteristics));
     bool has_errors = false;
-    for (int i = 0; i < cJSON_GetArraySize(characteristics); i++)
+    for (int i = 0; i < esphap_cJSON_GetArraySize(characteristics); i++)
     {
-        cJSON *j_ch = cJSON_GetArrayItem(characteristics, i);
+        cJSON *j_ch = esphap_cJSON_GetArrayItem(characteristics, i);
 
-        char *s = cJSON_Print(j_ch);
+        char *s = esphap_cJSON_Print(j_ch);
         CLIENT_DEBUG(context, "Processing element %s", s);
         free(s);
 
@@ -2825,15 +2825,15 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
         json_string(json1, "characteristics");
         json_array_start(json1);
 
-        for (int i = 0; i < cJSON_GetArraySize(characteristics); i++)
+        for (int i = 0; i < esphap_cJSON_GetArraySize(characteristics); i++)
         {
-            cJSON *j_ch = cJSON_GetArrayItem(characteristics, i);
+            cJSON *j_ch = esphap_cJSON_GetArrayItem(characteristics, i);
 
             json_object_start(json1);
             json_string(json1, "aid");
-            json_integer(json1, cJSON_GetObjectItem(j_ch, "aid")->valueint);
+            json_integer(json1, esphap_cJSON_GetObjectItem(j_ch, "aid")->valueint);
             json_string(json1, "iid");
-            json_integer(json1, cJSON_GetObjectItem(j_ch, "iid")->valueint);
+            json_integer(json1, esphap_cJSON_GetObjectItem(j_ch, "iid")->valueint);
             json_string(json1, "status");
             json_integer(json1, statuses[i]);
             json_object_end(json1);
@@ -2849,7 +2849,7 @@ void homekit_server_on_update_characteristics(client_context_t *context, const b
     }
 
     free(statuses);
-    cJSON_Delete(json);
+    esphap_cJSON_Delete(json);
 }
 
 void homekit_server_on_pairings(client_context_t *context, const byte *data, size_t size)
